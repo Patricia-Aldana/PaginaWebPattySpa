@@ -1,0 +1,16 @@
+/* Services.css */
+.Services {
+    margin-top: 20px;
+  }
+  
+  .Services h2 {
+    font-size: 24px;
+    color: #9370db; /* Púrpura pastel */
+  }
+  
+  .Services p {
+    font-size: 18px;
+    color: #a020f0; /* Lila oscuro pastel */
+    margin-bottom: 15px;
+  }
+  
