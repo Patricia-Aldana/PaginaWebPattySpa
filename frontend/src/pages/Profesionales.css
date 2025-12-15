@@ -1,0 +1,83 @@
+.profesionales-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 30px auto;
+  padding: 20px;
+  text-align: center;
+}
+
+.titulo-prof {
+  font-size: 32px;
+  margin-bottom: 25px;
+  color: #7b4dbb; /* Lila */
+}
+
+.fila-horizontal {
+  display: flex;
+  gap: 25px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.prof-card {
+  width: 260px;
+  background: #fff;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  transition: 0.3s ease;
+}
+
+.prof-card:hover {
+  transform: translateY(-5px);
+}
+
+.prof-img {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 15px;
+  border: 3px solid #b39ddb; /* Lila suave */
+}
+
+h3 {
+  font-size: 20px;
+  color: #333;
+}
+
+h4 {
+  font-size: 16px;
+  color: #7b4dbb;
+  margin-bottom: 10px;
+}
+
+.texto-exp,
+.texto-desc,
+.extra {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.frase {
+  font-style: italic;
+  color: #7b4dbb;
+  margin-top: 5px;
+}
+
+.btn-agendar {
+  background-color: #7b4dbb;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.btn-agendar:hover {
+  background-color: #6a42a4;
+}

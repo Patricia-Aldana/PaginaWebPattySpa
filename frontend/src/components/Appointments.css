@@ -1,0 +1,26 @@
+/* Estilos simples para formulario y lista de citas */
+.form-container {
+  max-width: 520px;
+  margin: 40px auto;
+  padding: 26px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+.appointment-form input,
+.appointment-form select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e6d9f7;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.appointment-form .grid-2 {
+  display:flex; gap:12px;
+}
+.appointment-form .grid-2 input { flex:1; }
+.appointment-form button {
+  background: linear-gradient(135deg,#6c2f84,#5a2d82);
+  color:white; border:none; padding:10px 14px; border-radius:10px; cursor:pointer;
+}
+.mensaje { margin-top:12px; color:#7a3aa3; font-weight:600; }

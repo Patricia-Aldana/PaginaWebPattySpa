@@ -1,0 +1,209 @@
+/* 🎨 Estilos Globales para Patty Spa */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #fbeaff, #f3e8fc);
+  color: #333;
+  min-height: 100vh;
+}
+
+/* Contenedor central para formularios */
+.form-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* Caja de cada formulario */
+.form-box {
+  background: #fff;
+  padding: 30px 25px;
+  border-radius: 15px;
+  box-shadow: 0px 6px 18px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+.form-box h2 {
+  color: #712e8b;
+  margin-bottom: 20px;
+  font-size: 26px;
+  font-weight: bold;
+}
+
+/* Inputs */
+.form-box input,
+.form-box select {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid #d8a7e8;
+  border-radius: 10px;
+  font-size: 15px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.form-box input:focus,
+.form-box select:focus {
+  border-color: #712e8b;
+  box-shadow: 0 0 6px rgba(113, 46, 139, 0.3);
+}
+
+/* Botones */
+.form-box button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  background: linear-gradient(135deg, #d8a7e8, #b077d6);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.form-box button:hover {
+  background: linear-gradient(135deg, #b077d6, #712e8b);
+  transform: scale(1.05);
+}
+
+/* Animación */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Pequeñas decoraciones */
+.decor {
+  width: 80px;
+  margin: 10px auto;
+}
+/* Estilo general del contenido */
+.section {
+  text-align: center;
+  padding: 50px 20px;
+  font-size: 20px; /* 🔥 más grande */
+  line-height: 1.8;
+  color: #4a235a; /* tono morado elegante */
+}
+
+/* Títulos */
+.section h2 {
+  font-size: 32px; /* 🔥 más grande y destacado */
+  margin-bottom: 15px;
+  color: #8e44ad;
+  text-shadow: 1px 1px 2px rgba(142, 68, 173, 0.3);
+  font-weight: bold;
+}
+.services-grid {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.service-img {
+  width: 120px;
+  margin-bottom: 10px;
+  transition: transform 0.3s ease;
+}
+
+.service-img:hover {
+  transform: scale(1.1);
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  background: #f7f7fb;
+  margin: 0;
+}
+
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1, h2 {
+  color: #5c4bb7;
+}
+
+.form-container, .list-container {
+  background: #fff;
+  padding: 20px;
+  margin: 16px 0;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+}
+
+form input, form select {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+button {
+  background: #5c4bb7;
+  color: white;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+button:hover {
+  background: #493aa5;
+}
+
+button.danger {
+  background: #e74c3c;
+}
+
+button.danger:hover {
+  background: #c0392b;
+}
+
+.mensaje {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  background: #f0f0f7;
+  text-align: left;
+}
