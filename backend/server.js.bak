@@ -1,0 +1,311 @@
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
+const nodemailer = require("nodemailer");
+const cron = require("node-cron");
+
+const app = express();
+
+// --- ENV ---
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI;
+const allowedOriginsEnv = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "*";
+const allowedOrigins = allowedOriginsEnv.split(",").map((s) => s.trim()).filter(Boolean);
+
+// --- MIDDLEWARE ---
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        return cb(null, true);
+      }
+      return cb(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
+app.use(bodyParser.json());
+
+// --- DB ---
+mongoose
+  .connect(MONGO_URI)
+  .then(() => console.log("✅ Conectado a MongoDB Atlas"))
+  .catch((err) => console.error("❌ Error al conectar a MongoDB:", err));
+
+// --- MODELOS ---
+const ProfesionalSchema = new mongoose.Schema({
+  nombre: { type: String, required: true },
+  especialidad: { type: String, required: true },
+});
+const Profesional = mongoose.model("Profesional", ProfesionalSchema);
+
+const CitaSchema = new mongoose.Schema({
+  nombre: { type: String, required: true },
+  servicio: { type: String, required: true },
+  email: { type: String },
+  inicio: { type: Date, required: true },
+  fin: { type: Date, required: true },
+  profesional: { type: mongoose.Schema.Types.ObjectId, ref: "Profesional", required: true },
+  reminderSent: { type: Boolean, default: false } // marca si ya se envió recordatorio
+});
+const Cita = mongoose.model("Cita", CitaSchema);
+
+// --- DURACIONES ---
+const duraciones = {
+  manicure: 35,
+  pedicure: 45,
+  tinte: 90,
+  corte: 60,
+  facial: 50,
+};
+
+// --- LOG ---
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// --- HEALTH ---
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, port: PORT });
+});
+
+// --- SEED PROFESIONALES ---
+async function seedProfesionalesOnce() {
+  try {
+    const count = await Profesional.countDocuments();
+    if (count === 0) {
+      await Profesional.insertMany([
+        { nombre: "Patricia Aldana", especialidad: "Manicurista" },
+        { nombre: "María del Pilar Gómez", especialidad: "Manicurista" },
+        { nombre: "Yenny Cabi", especialidad: "Estilista" },
+        { nombre: "Diana Escobar", especialidad: "Esteticista" },
+      ]);
+      console.log("🌱 Profesionales creados automáticamente.");
+    } else {
+      console.log(`ℹ️ Profesionales existentes: ${count}`);
+    }
+  } catch (error) {
+    console.error("❌ Error en seed de profesionales:", error);
+  }
+}
+mongoose.connection.once("open", seedProfesionalesOnce);
+
+// --- ENDPOINTS PROFESIONALES ---
+app.get("/api/setup-profesionales", async (_req, res) => {
+  try {
+    await seedProfesionalesOnce();
+    res.json({ success: true, message: "Seed ejecutado" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error al crear profesionales" });
+  }
+});
+
+app.get("/api/profesionales", async (_req, res) => {
+  try {
+    const profesionales = await Profesional.find().sort({ nombre: 1 });
+    res.json(profesionales);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error al obtener profesionales" });
+  }
+});
+
+// --- NODEMAILER CONFIG (GMAIL) ---
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// Optional: verify transporter on startup
+transporter.verify((err, success) => {
+  if (err) {
+    console.error("❌ Error al verificar transportador de correo:", err);
+  } else {
+    console.log("✅ Transportador de correo listo");
+  }
+});
+
+// Función para enviar correo de confirmación inmediato
+async function enviarCorreoConfirmacion({ email, nombre, fecha, hora, servicio, profesional }) {
+  if (!email) return;
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Confirmación de tu cita - Patty Spa",
+      html: `
+        <h2>¡Hola ${nombre || "cliente"}!</h2>
+        <p>Tu cita ha sido agendada con éxito.</p>
+        <b>Detalles:</b>
+        <ul>
+          <li><b>Servicio:</b> ${servicio}</li>
+          <li><b>Fecha:</b> ${fecha}</li>
+          <li><b>Hora:</b> ${hora}</li>
+          <li><b>Profesional:</b> ${profesional}</li>
+        </ul>
+        <p>Gracias por confiar en Patty Spa 💜</p>
+      `
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`✉️ Correo de confirmación enviado a ${email}`);
+  } catch (err) {
+    console.error("❌ Error al enviar correo de confirmación:", err);
+  }
+}
+
+// Función para enviar recordatorio 6 horas antes
+async function enviarRecordatorio({ email, nombre, fecha, hora, servicio, profesional }) {
+  if (!email) return;
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Recordatorio: Tu cita en 6 horas - Patty Spa",
+      html: `
+        <h2>Hola ${nombre || "cliente"}</h2>
+        <p>Te recordamos que tienes una cita en aproximadamente <b>6 horas</b>.</p>
+        <b>Detalles:</b>
+        <ul>
+          <li><b>Servicio:</b> ${servicio}</li>
+          <li><b>Fecha:</b> ${fecha}</li>
+          <li><b>Hora:</b> ${hora}</li>
+          <li><b>Profesional:</b> ${profesional}</li>
+        </ul>
+        <p>Si necesitas cambiar o cancelar, contáctanos. ¡Te esperamos! 💜</p>
+      `
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`🔔 Recordatorio enviado a ${email}`);
+  } catch (err) {
+    console.error("❌ Error al enviar recordatorio:", err);
+  }
+}
+
+// --- ENDPOINTS CITAS ---
+app.post("/api/agendamiento", async (req, res) => {
+  const { nombre, fecha, hora, servicio, email, profesionalId } = req.body;
+
+  try {
+    const inicio = new Date(`${fecha}T${hora}`);
+    const duracion = duraciones[(servicio || "").toLowerCase()] || 30;
+    const fin = new Date(inicio.getTime() + duracion * 60000);
+
+    const existe = await Cita.findOne({
+      profesional: profesionalId,
+      inicio: { $lt: fin },
+      fin: { $gt: inicio },
+    });
+
+    if (existe) {
+      return res.json({
+        success: false,
+        message: "❌ Ese profesional ya tiene una cita en ese horario",
+      });
+    }
+
+    const nueva = new Cita({
+      nombre,
+      servicio,
+      email,
+      inicio,
+      fin,
+      profesional: profesionalId,
+      reminderSent: false
+    });
+
+    await nueva.save();
+
+    // populate profesional para usar su nombre en el correo
+    const nuevaPop = await Cita.findById(nueva._id).populate("profesional");
+
+    // enviar correo de confirmación inmediato
+    await enviarCorreoConfirmacion({
+      email,
+      nombre,
+      fecha,
+      hora,
+      servicio,
+      profesional: nuevaPop.profesional?.nombre || ""
+    });
+
+    res.json({ success: true, message: "✅ Cita agendada con éxito" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error al guardar la cita" });
+  }
+});
+
+app.get("/api/citas", async (_req, res) => {
+  try {
+    const citas = await Cita.find().populate("profesional").sort({ inicio: 1 });
+    res.json(citas);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error al obtener citas" });
+  }
+});
+
+app.delete("/api/citas/:id", async (req, res) => {
+  try {
+    await Cita.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Cita eliminada" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error al eliminar cita" });
+  }
+});
+
+// --- CRON: Enviar recordatorios 6 horas antes ---
+// Cada 10 minutos
+cron.schedule("*/10 * * * *", async () => {
+  try {
+    const now = new Date();
+    const start = new Date(now.getTime() + 6 * 60 * 60 * 1000); // ahora + 6h
+    const end = new Date(start.getTime() + 11 * 60 * 1000); // ventana de 11 minutos
+
+    const pendientes = await Cita.find({
+      inicio: { $gte: start, $lt: end },
+      reminderSent: false,
+      email: { $exists: true, $ne: "" }
+    }).populate("profesional");
+
+    if (pendientes.length > 0) {
+      console.log(`🔎 Encontradas ${pendientes.length} citas para recordar (6h)`);
+    }
+
+    for (const cita of pendientes) {
+      try {
+        const fechaStr = cita.inicio.toLocaleDateString();
+        const horaStr = cita.inicio.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        await enviarRecordatorio({
+          email: cita.email,
+          nombre: cita.nombre,
+          fecha: fechaStr,
+          hora: horaStr,
+          servicio: cita.servicio,
+          profesional: cita.profesional?.nombre || ""
+        });
+
+        cita.reminderSent = true;
+        await cita.save();
+      } catch (err) {
+        console.error("❌ Error procesando recordatorio para cita:", cita._id, err);
+      }
+    }
+  } catch (err) {
+    console.error("❌ Error en tarea cron recordatorio:", err);
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Backend en http://localhost:${PORT}`);
+  console.log(`🔎 Health: http://localhost:${PORT}/api/health`);
+});
