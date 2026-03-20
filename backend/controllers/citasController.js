@@ -500,17 +500,27 @@ const create = async (req, res) => {
       await Cita.findById(nuevaCita._id).lean(),
     ]);
 
-    const mailResult = await sendConfirmationEmail(req, citaNormalizada);
-
-    return res.status(201).json({
+    res.status(201).json({
       ok: true,
-      message: mailResult.sent
-        ? "Cita creada y correo de confirmación enviado"
-        : "Cita creada, pero no se pudo enviar el correo de confirmación",
-      correoConfirmacionEnviado: !!mailResult.sent,
-      mailError: mailResult.sent ? null : mailResult.reason,
+      message: "Cita creada correctamente",
+      correoConfirmacionEnviado: false,
       cita: citaNormalizada,
     });
+
+    sendConfirmationEmail(req, citaNormalizada)
+      .then((mailResult) => {
+        if (mailResult?.sent) {
+          console.log("✅ Correo de confirmación enviado en segundo plano");
+        } else {
+          console.warn(
+            "⚠️ Cita creada, pero el correo no se pudo enviar:",
+            mailResult?.reason
+          );
+        }
+      })
+      .catch((mailError) => {
+        console.error("❌ Error inesperado enviando correo en segundo plano:", mailError);
+      });
   } catch (error) {
     console.error("❌ Error creando cita:", error);
 

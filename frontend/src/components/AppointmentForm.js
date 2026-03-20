@@ -270,15 +270,7 @@ function AppointmentForm() {
       setUltimaCita(citaGuardada);
       localStorage.setItem("ultima_cita_pattyspa", JSON.stringify(citaGuardada));
 
-      if (data?.correoConfirmacionEnviado) {
-        setMensaje("✅ Cita agendada con éxito. Revisa tu correo de confirmación.");
-      } else {
-        setMensaje(
-          `✅ Cita agendada. ⚠️ No se pudo enviar el correo de confirmación${
-            data?.mailError ? ` (${data.mailError})` : ""
-          }.`
-        );
-      }
+      setMensaje("✅ Cita agendada correctamente.");
 
       setFecha("");
       setHora("");
@@ -438,7 +430,7 @@ function AppointmentForm() {
             <ul>
               <li>Horario disponible: 8:00 a. m. a 6:00 p. m.</li>
               <li>Las cancelaciones se permiten con 6 horas o más de anticipación.</li>
-              <li>Recibirás confirmación por correo si el servicio de email está activo.</li>
+              <li>La cita se guarda incluso si el correo falla.</li>
             </ul>
           </div>
         </aside>
