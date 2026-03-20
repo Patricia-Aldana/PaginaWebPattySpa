@@ -1,15 +1,19 @@
 import React, { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import HomePage from "./components/HomePage";
 import RegisterForm from "./components/RegisterForm";
+import LoginForm from "./components/LoginForm";
 import AppointmentForm from "./components/AppointmentForm";
 import AppointmentsList from "./components/AppointmentsList";
 import Profesionales from "./pages/Profesionales";
-
-// ⭐ Nuevo Panel Administrativo
 import AdminPanel from "./components/AdminPanel";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import Productos from "./components/Productos";
+
+import { RequireAuth, RequireAdmin } from "./components/ProtectedRoute";
 
 function App() {
   const [cartOpen, setCartOpen] = useState(false);
@@ -20,15 +24,57 @@ function App() {
 
       <main style={{ paddingTop: 72 }}>
         <Routes>
-          {/* Rutas existentes - NO las toco */}
-          <Route path="/" element={<HomePage cartOpen={cartOpen} setCartOpen={setCartOpen} />} />
-          <Route path="/register" element={<RegisterForm />} />
-          <Route path="/agendamiento" element={<AppointmentForm />} />
-          <Route path="/mis-citas" element={<AppointmentsList />} />
-          <Route path="/profesionales" element={<Profesionales />} />
+          {/* Rutas públicas */}
+          <Route
+            path="/"
+            element={
+              <HomePage
+                cartOpen={cartOpen}
+                setCartOpen={setCartOpen}
+              />
+            }
+          />
 
-          {/* ⭐ NUEVO PANEL ADMINISTRATIVO */}
-          <Route path="/panel-administrativo" element={<AdminPanel />} />
+          <Route path="/register" element={<RegisterForm />} />
+          <Route path="/login" element={<LoginForm />} />
+          <Route path="/profesionales" element={<Profesionales />} />
+          <Route path="/productos" element={<Productos />} />
+
+          {/* Recuperación de contraseña */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Usuario registrado */}
+          <Route
+            path="/agendamiento"
+            element={
+              <RequireAuth>
+                <AppointmentForm />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/mis-citas"
+            element={
+              <RequireAuth>
+                <AppointmentsList />
+              </RequireAuth>
+            }
+          />
+
+          {/* Solo admin */}
+          <Route
+            path="/panel-administrativo"
+            element={
+              <RequireAdmin>
+                <AdminPanel />
+              </RequireAdmin>
+            }
+          />
+
+          {/* Ruta comodín */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </>

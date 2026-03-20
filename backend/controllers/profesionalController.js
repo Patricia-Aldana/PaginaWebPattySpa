@@ -1,5 +1,6 @@
 const Profesional = require("../models/Profesional");
 
+// listar profesionales
 exports.list = async (req, res) => {
   try {
     const list = await Profesional.find().sort({ nombre: 1 });
@@ -13,6 +14,7 @@ exports.list = async (req, res) => {
   }
 };
 
+// obtener perfil
 exports.getProfile = async (req, res) => {
   try {
     const prof = await Profesional.findById(req.params.id);
@@ -26,9 +28,11 @@ exports.getProfile = async (req, res) => {
   }
 };
 
+// actualizar perfil
 exports.updateProfile = async (req, res) => {
   try {
-    const prof = req.profesional;
+    const prof = req.profesional || await Profesional.findById(req.params.id);
+
     const { nombre, especialidad, fotoUrl, activo } = req.body;
 
     if (nombre) prof.nombre = nombre;

@@ -11,7 +11,7 @@
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 15px;
   margin-bottom: 30px;
 }
@@ -32,18 +32,22 @@
   width: 100%;
   border-collapse: collapse;
   margin-top: 10px;
+  background: white;
 }
 
 .styled-table th,
 .styled-table td {
   padding: 12px;
   border-bottom: 1px solid #ddd;
+  vertical-align: middle;
 }
 
 .styled-table th {
   background: #ddd;
+  text-align: left;
 }
 
+/* ✅ Botones originales tuyos */
 .btn-activar {
   background: #4caf50;
   color: white;
@@ -60,4 +64,134 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
+}
+
+.btn-activar:disabled,
+.btn-desactivar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ✅ Mejoras recomendadas para acciones y edición */
+.acciones-col {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Botones genéricos */
+.btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #f2f2f2;
+}
+
+.btn:hover {
+  filter: brightness(0.97);
+}
+
+.btn-primary {
+  background: #4f46e5;
+  color: white;
+}
+
+.btn-secondary {
+  background: #6b7280;
+  color: white;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #4f46e5;
+  color: #4f46e5;
+}
+
+/* ✅ Editor de precio */
+.precio-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.peso-signo {
+  font-weight: bold;
+}
+
+.precio-input {
+  width: 120px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.precio-texto {
+  font-weight: 600;
+}
+
+/* ✅ Badges estado */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badge-ok {
+  background: #e7f6ec;
+  color: #167a2e;
+  border: 1px solid #bfe9cc;
+}
+
+.badge-off {
+  background: #fdeaea;
+  color: #b42318;
+  border: 1px solid #f7c5c5;
+}
+
+/* ✅ Mensajes de error */
+.error-msg {
+  color: #b42318;
+  background: #fdeaea;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #f7c5c5;
+  margin: 10px 0;
+}
+.admin-dashboard {
+  padding: 120px 24px 40px;
+}
+
+.admin-section {
+  margin-top: 30px;
+  overflow-x: auto;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.styled-table th,
+.styled-table td {
+  padding: 14px 12px;
+  vertical-align: middle;
+}
+
+.styled-table thead th {
+  background: #ececec;
+}
+
+.styled-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.summary-grid {
+  margin-top: 20px;
 }

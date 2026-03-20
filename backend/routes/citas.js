@@ -5,10 +5,16 @@ const citasController = require("../controllers/citasController");
 // Crear cita
 router.post("/agendamiento", citasController.create);
 
-// Listar todas
+// Mis citas del cliente
+router.get("/mis-citas", citasController.listMine);
+
+// Todas las citas (panel admin)
 router.get("/", citasController.listAll);
 
-// Eliminar
-router.delete("/:id", citasController.delete);
+// Cancelar cita (solo con 6 horas o más)
+router.delete("/:id/cancelar", citasController.cancelar);
+
+// Eliminar cita (admin)
+router.delete("/:id", citasController.deleteCita);
 
 module.exports = router;

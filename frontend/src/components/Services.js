@@ -3,14 +3,6 @@ import React, { useState, useEffect } from 'react';
 import './Services.css';
 import { api } from '../services/api'; // IMPORTANTE: ajusta la ruta si está en otro lugar
 
-const SERVICES = [
-  { id: 'manicura', title: 'Manicura', subtitle: 'Tradicional y semipermanente', icon: '💅' },
-  { id: 'pedicura', title: 'Pedicura', icon: '👣' },
-  { id: 'peinado', title: 'Peinado', subtitle: 'Look día y noche', icon: '💇‍♀️' },
-  { id: 'tinte', title: 'Aplicación de Tinte', icon: '🎨' },
-  { id: 'depilacion', title: 'Depilación', icon: '✨' },
-];
-
 // Horarios disponibles
 const TIME_SLOTS = [
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -20,6 +12,7 @@ const TIME_SLOTS = [
 
 export default function Services() {
   const [showForm, setShowForm] = useState(false);
+  const [servicios, setServicios] = useState([]);
   const [service, setService] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');

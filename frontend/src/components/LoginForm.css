@@ -1,0 +1,76 @@
+/* Fondo general */
+.login-form-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    #fdeff4,
+    #fff5f8,
+    #fdfdfd
+  );
+  font-family: "Segoe UI", sans-serif;
+}
+
+/* Caja del formulario */
+.login-form-container form {
+  background: #ffffff;
+  padding: 40px 35px;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+/* Título */
+.login-form-container h2 {
+  margin-bottom: 25px;
+  color: #b03a6b;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Inputs */
+.login-form-container input {
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid #f1c6d3;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.login-form-container input:focus {
+  border-color: #d16b9f;
+  box-shadow: 0 0 0 2px rgba(209, 107, 159, 0.15);
+}
+
+/* Botón */
+.login-form-container button {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #d16b9f, #b03a6b);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-form-container button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 15px rgba(176, 58, 107, 0.35);
+}
+
+/* Mensajes opcionales */
+.login-form-container p {
+  margin-top: 18px;
+  font-size: 13px;
+  color: #777;
+}
