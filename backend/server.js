@@ -81,30 +81,44 @@ const isLocalDevOrigin = (origin) => {
   );
 };
 
+const isVercelOrigin = (origin) => {
+  return /^https:\/\/.*\.vercel\.app$/i.test(origin);
+};
+
+const isAllowedOrigin = (origin) => {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (allowedOrigins.includes(normalizedOrigin)) return true;
+  if (NODE_ENV !== "production" && isLocalDevOrigin(normalizedOrigin)) return true;
+
+  // Permite cualquier subdominio de Vercel
+  if (isVercelOrigin(normalizedOrigin)) return true;
+
+  return false;
+};
+
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
 
-    const normalizedOrigin = normalizeOrigin(origin);
-
-    if (allowedOrigins.includes(normalizedOrigin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
 
-    if (NODE_ENV !== "production" && isLocalDevOrigin(normalizedOrigin)) {
-      return callback(null, true);
-    }
-
+    console.error("❌ CORS bloqueó origen:", origin);
     return callback(new Error(`Origen no permitido por CORS: ${origin}`));
   },
-  credentials: true,
+  credentials: false,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
 };
 
 console.log("✅ Orígenes permitidos CORS:", allowedOrigins);
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -115,6 +129,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use((req, _res, next) => {
   console.log("------ NUEVA PETICIÓN ------");
   console.log(`${req.method} ${req.originalUrl}`);
+  console.log("ORIGIN:", req.headers.origin || "sin-origin");
 
   if (Object.keys(req.body || {}).length > 0) {
     const safeBody = { ...req.body };
@@ -164,11 +179,14 @@ if (!EMAIL_USER || !EMAIL_PASS) {
       user: EMAIL_USER,
       pass: EMAIL_PASS,
     },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
   });
 
   transporter.verify((err, success) => {
     if (err) {
-      console.error("❌ Error con nodemailer:", err);
+      console.error("❌ Error con nodemailer:", err.message || err);
     } else {
       console.log("📬 Servidor de correo listo:", success);
     }
@@ -250,7 +268,6 @@ app.use("/api/productos", require("./routes/productos"));
 
 /* -------------------------
    CRON RECORDATORIOS
-   Se envían entre 6 y 7 horas antes
 ------------------------- */
 cron.schedule("*/10 * * * *", async () => {
   if (!transporter) return;
@@ -294,7 +311,7 @@ cron.schedule("*/10 * * * *", async () => {
           { $set: { recordatorioEnviado: true } }
         );
       } catch (mailErr) {
-        console.error(`❌ Error enviando recordatorio a ${cita.email}:`, mailErr);
+        console.error(`❌ Error enviando recordatorio a ${cita.email}:`, mailErr.message || mailErr);
       }
     }
   } catch (err) {
@@ -599,6 +616,16 @@ app.use((req, res) => {
 app.use((err, _req, res, _next) => {
   console.error("❌ Error global:", err);
 
+  if (
+    err.message &&
+    (err.message.includes("CORS") || err.message.includes("Origen no permitido"))
+  ) {
+    return res.status(403).json({
+      ok: false,
+      message: err.message,
+    });
+  }
+
   res.status(err.status || 500).json({
     ok: false,
     message: err.message || "Error interno del servidor",
@@ -618,7 +645,7 @@ async function startServer() {
     await repairOldCitasDataOnce();
 
     app.listen(PORT, () => {
-      console.log(`🚀 Backend en http://localhost:${PORT}`);
+      console.log(`🚀 Backend iniciado en puerto ${PORT}`);
     });
   } catch (err) {
     console.error("❌ Error al iniciar servidor:", err);
