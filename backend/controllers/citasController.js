@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Cita = require("../models/Cita");
 const Profesional = require("../models/Profesional");
 const Servicio = require("../models/Servicio");
+const { sendBrevoEmail } = require("../utils/brevoMailer");
 
 const LIMITE_CANCELACION_HORAS = 6;
 
@@ -16,7 +17,12 @@ const isRealNameText = (value) => {
 
 const firstObjectId = (...values) => {
   for (const value of values) {
-    if (value && typeof value === "object" && value._id && isObjectIdText(value._id)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      value._id &&
+      isObjectIdText(value._id)
+    ) {
       return cleanText(value._id);
     }
 
@@ -89,40 +95,7 @@ const formatDateTime = (value) => {
   });
 };
 
-const sendMailSafe = async ({ req, to, subject, text, html }) => {
-  const transporter = req.app?.locals?.transporter;
-  const from = req.app?.locals?.MAIL_FROM || req.app?.locals?.EMAIL_USER;
-
-  if (!transporter || !from || !to) {
-    console.warn("⚠️ Mailer no configurado. No se pudo enviar correo a:", to);
-    return { sent: false, reason: "mailer-no-configurado" };
-  }
-
-  try {
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject,
-      text,
-      html,
-      replyTo: req.app?.locals?.EMAIL_USER || undefined,
-    });
-
-    console.log("📨 Correo enviado:", {
-      to,
-      accepted: info.accepted,
-      rejected: info.rejected,
-      response: info.response,
-    });
-
-    return { sent: true, info };
-  } catch (error) {
-    console.error("❌ Error enviando correo:", error);
-    return { sent: false, reason: error.message || "mail-error" };
-  }
-};
-
-const sendConfirmationEmail = async (req, cita) => {
+const sendConfirmationEmail = async (cita) => {
   const servicio =
     firstRealName(cita.servicioNombre, cita.servicio) || "Servicio";
 
@@ -131,11 +104,11 @@ const sendConfirmationEmail = async (req, cita) => {
 
   const fechaHora = formatDateTime(cita.inicio);
 
-  return sendMailSafe({
-    req,
+  return sendBrevoEmail({
     to: cita.email,
+    toName: cita.nombre,
     subject: "Confirmación de tu cita - Patty Spa",
-    text: `Hola ${cita.nombre}.
+    textContent: `Hola ${cita.nombre}.
 
 Tu cita fue reservada correctamente en Patty Spa.
 
@@ -146,7 +119,7 @@ Fecha y hora: ${fechaHora}
 Recuerda que solo puedes cancelar tu cita con ${LIMITE_CANCELACION_HORAS} horas o más de anticipación.
 
 ¡Te esperamos!`,
-    html: `
+    htmlContent: `
       <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333">
         <h2 style="color:#7b2cbf;">Confirmación de tu cita</h2>
         <p>Hola <strong>${cita.nombre}</strong>,</p>
@@ -169,7 +142,7 @@ Recuerda que solo puedes cancelar tu cita con ${LIMITE_CANCELACION_HORAS} horas 
 
         <p style="margin-top:16px;">
           Recuerda que solo puedes cancelar tu cita con
-          <strong> ${LIMITE_CANCELACION_HORAS} horas o más de anticipación</strong>.
+          <strong>${LIMITE_CANCELACION_HORAS} horas o más de anticipación</strong>.
         </p>
 
         <p>Gracias por confiar en Patty Spa 💅✨</p>
@@ -178,7 +151,7 @@ Recuerda que solo puedes cancelar tu cita con ${LIMITE_CANCELACION_HORAS} horas 
   });
 };
 
-const sendCancellationEmail = async (req, cita) => {
+const sendCancellationEmail = async (cita) => {
   const servicio =
     firstRealName(cita.servicioNombre, cita.servicio) || "Servicio";
 
@@ -187,18 +160,18 @@ const sendCancellationEmail = async (req, cita) => {
 
   const fechaHora = formatDateTime(cita.inicio);
 
-  return sendMailSafe({
-    req,
+  return sendBrevoEmail({
     to: cita.email,
+    toName: cita.nombre,
     subject: "Cancelación de tu cita - Patty Spa",
-    text: `Hola ${cita.nombre}.
+    textContent: `Hola ${cita.nombre}.
 
 Tu cita fue cancelada correctamente.
 
 Servicio: ${servicio}
 Profesional: ${profesional}
 Fecha y hora original: ${fechaHora}`,
-    html: `
+    htmlContent: `
       <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333">
         <h2 style="color:#b02a37;">Cancelación de tu cita</h2>
         <p>Hola <strong>${cita.nombre}</strong>,</p>
@@ -333,13 +306,13 @@ const create = async (req, res) => {
     const notas = cleanText(req.body.notas || req.body.observaciones);
 
     const usuarioId = cleanText(
-      req.body.usuarioId || req.body.userId || req.body.clienteId || req.body.id
+      req.body.usuarioId ||
+        req.body.userId ||
+        req.body.clienteId ||
+        req.body.id
     );
 
-    const servicioId = firstObjectId(
-      req.body.servicioId,
-      req.body.servicio
-    );
+    const servicioId = firstObjectId(req.body.servicioId, req.body.servicio);
 
     const servicioTexto = firstRealName(
       req.body.servicioNombre,
@@ -500,27 +473,17 @@ const create = async (req, res) => {
       await Cita.findById(nuevaCita._id).lean(),
     ]);
 
-    res.status(201).json({
+    const mailResult = await sendConfirmationEmail(citaNormalizada);
+
+    return res.status(201).json({
       ok: true,
-      message: "Cita creada correctamente",
-      correoConfirmacionEnviado: false,
+      message: mailResult.sent
+        ? "Cita creada y correo de confirmación enviado"
+        : "Cita creada, pero no se pudo enviar el correo de confirmación",
+      correoConfirmacionEnviado: !!mailResult.sent,
+      mailError: mailResult.sent ? null : mailResult.reason,
       cita: citaNormalizada,
     });
-
-    sendConfirmationEmail(req, citaNormalizada)
-      .then((mailResult) => {
-        if (mailResult?.sent) {
-          console.log("✅ Correo de confirmación enviado en segundo plano");
-        } else {
-          console.warn(
-            "⚠️ Cita creada, pero el correo no se pudo enviar:",
-            mailResult?.reason
-          );
-        }
-      })
-      .catch((mailError) => {
-        console.error("❌ Error inesperado enviando correo en segundo plano:", mailError);
-      });
   } catch (error) {
     console.error("❌ Error creando cita:", error);
 
@@ -661,7 +624,7 @@ const cancelar = async (req, res) => {
 
     const [citaNormalizada] = await normalizeCitas([cita.toObject()]);
 
-    await sendCancellationEmail(req, citaNormalizada);
+    await sendCancellationEmail(citaNormalizada);
 
     return res.status(200).json({
       ok: true,

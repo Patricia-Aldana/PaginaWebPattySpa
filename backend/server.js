@@ -3,13 +3,16 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const nodemailer = require("nodemailer");
 const cron = require("node-cron");
 const path = require("path");
 
 const Profesional = require("./models/Profesional");
 const Servicio = require("./models/Servicio");
 const Cita = require("./models/Cita");
+const {
+  sendBrevoEmail,
+  isBrevoConfigured,
+} = require("./utils/brevoMailer");
 
 const app = express();
 
@@ -18,9 +21,6 @@ const app = express();
 ------------------------- */
 const PORT = Number(process.env.PORT) || 5000;
 const MONGO_URI = process.env.MONGO_URI;
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASS = process.env.EMAIL_PASS;
-const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || "Patty Spa";
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 if (!MONGO_URI) {
@@ -40,7 +40,12 @@ const isRealNameText = (value) => {
 
 const firstObjectId = (...values) => {
   for (const value of values) {
-    if (value && typeof value === "object" && value._id && isObjectIdText(value._id)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      value._id &&
+      isObjectIdText(value._id)
+    ) {
       return cleanText(value._id);
     }
 
@@ -89,9 +94,9 @@ const isAllowedOrigin = (origin) => {
   const normalizedOrigin = normalizeOrigin(origin);
 
   if (allowedOrigins.includes(normalizedOrigin)) return true;
-  if (NODE_ENV !== "production" && isLocalDevOrigin(normalizedOrigin)) return true;
-
-  // Permite cualquier subdominio de Vercel
+  if (NODE_ENV !== "production" && isLocalDevOrigin(normalizedOrigin)) {
+    return true;
+  }
   if (isVercelOrigin(normalizedOrigin)) return true;
 
   return false;
@@ -157,45 +162,9 @@ app.get("/api/health", (_req, res) => {
     ok: true,
     port: PORT,
     env: NODE_ENV,
+    mailer: isBrevoConfigured() ? "brevo" : "no-configurado",
   });
 });
-
-/* -------------------------
-   NODEMAILER
-------------------------- */
-let transporter = null;
-
-if (!EMAIL_USER || !EMAIL_PASS) {
-  console.warn("⚠️ Falta EMAIL_USER/EMAIL_PASS en .env. Correos desactivados.");
-  app.locals.transporter = null;
-  app.locals.EMAIL_USER = null;
-  app.locals.MAIL_FROM = null;
-} else {
-  transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_PASS,
-    },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000,
-  });
-
-  transporter.verify((err, success) => {
-    if (err) {
-      console.error("❌ Error con nodemailer:", err.message || err);
-    } else {
-      console.log("📬 Servidor de correo listo:", success);
-    }
-  });
-
-  app.locals.transporter = transporter;
-  app.locals.EMAIL_USER = EMAIL_USER;
-  app.locals.MAIL_FROM = `"${EMAIL_FROM_NAME}" <${EMAIL_USER}>`;
-}
 
 /* -------------------------
    TEST DE CORREO SOLO EN DESARROLLO
@@ -203,14 +172,7 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 if (NODE_ENV !== "production") {
   app.get("/api/test-mail", async (req, res) => {
     try {
-      const to = cleanText(req.query.to || EMAIL_USER);
-
-      if (!app.locals.transporter || !app.locals.MAIL_FROM) {
-        return res.status(500).json({
-          ok: false,
-          message: "Mailer no configurado",
-        });
-      }
+      const to = cleanText(req.query.to || process.env.BREVO_SENDER_EMAIL);
 
       if (!to) {
         return res.status(400).json({
@@ -219,12 +181,12 @@ if (NODE_ENV !== "production") {
         });
       }
 
-      const info = await app.locals.transporter.sendMail({
-        from: app.locals.MAIL_FROM,
+      const result = await sendBrevoEmail({
         to,
+        toName: "Prueba",
         subject: "Prueba de correo - Patty Spa",
-        text: "Este es un correo de prueba desde Patty Spa.",
-        html: `
+        textContent: "Este es un correo de prueba desde Patty Spa.",
+        htmlContent: `
           <div style="font-family:Arial,sans-serif">
             <h2>Prueba de correo - Patty Spa</h2>
             <p>Si recibiste este correo, el sistema está funcionando.</p>
@@ -232,19 +194,18 @@ if (NODE_ENV !== "production") {
         `,
       });
 
-      console.log("📨 Test mail:", {
-        to,
-        accepted: info.accepted,
-        rejected: info.rejected,
-        response: info.response,
-      });
+      if (!result.sent) {
+        return res.status(500).json({
+          ok: false,
+          message: result.reason || "No se pudo enviar el correo",
+          data: result.data || null,
+        });
+      }
 
       return res.json({
         ok: true,
         message: "Correo de prueba enviado",
-        accepted: info.accepted,
-        rejected: info.rejected,
-        response: info.response,
+        data: result.data || null,
       });
     } catch (error) {
       console.error("❌ Error en test-mail:", error);
@@ -270,7 +231,7 @@ app.use("/api/productos", require("./routes/productos"));
    CRON RECORDATORIOS
 ------------------------- */
 cron.schedule("*/10 * * * *", async () => {
-  if (!transporter) return;
+  if (!isBrevoConfigured()) return;
 
   try {
     const ahora = new Date();
@@ -290,12 +251,12 @@ cron.schedule("*/10 * * * *", async () => {
           timeZone: "America/Bogota",
         });
 
-        await transporter.sendMail({
-          from: app.locals.MAIL_FROM,
+        const result = await sendBrevoEmail({
           to: cita.email,
+          toName: cita.nombre,
           subject: "Recordatorio de tu cita - Patty Spa",
-          text: `Hola ${cita.nombre}, te recordamos tu cita para ${fechaHora}. Recuerda que solo puedes cancelarla con 6 horas o más de anticipación.`,
-          html: `
+          textContent: `Hola ${cita.nombre}, te recordamos tu cita para ${fechaHora}. Recuerda que solo puedes cancelarla con 6 horas o más de anticipación.`,
+          htmlContent: `
             <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333">
               <h2 style="color:#7b2cbf;">Recordatorio de tu cita</h2>
               <p>Hola <strong>${cita.nombre}</strong>,</p>
@@ -306,12 +267,22 @@ cron.schedule("*/10 * * * *", async () => {
           `,
         });
 
-        await Cita.updateOne(
-          { _id: cita._id },
-          { $set: { recordatorioEnviado: true } }
-        );
+        if (result.sent) {
+          await Cita.updateOne(
+            { _id: cita._id },
+            { $set: { recordatorioEnviado: true } }
+          );
+        } else {
+          console.warn(
+            `⚠️ No se pudo enviar recordatorio a ${cita.email}:`,
+            result.reason
+          );
+        }
       } catch (mailErr) {
-        console.error(`❌ Error enviando recordatorio a ${cita.email}:`, mailErr.message || mailErr);
+        console.error(
+          `❌ Error enviando recordatorio a ${cita.email}:`,
+          mailErr.message || mailErr
+        );
       }
     }
   } catch (err) {
