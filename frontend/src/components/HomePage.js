@@ -47,9 +47,8 @@ import cremaHidratanteImg from "../assets/img/crema-hidratante.jpg";
 import aceiteLavandaImg from "../assets/img/aceite-lavanda.jpg";
 import esmalteRapidoImg from "../assets/img/esmalte-rapido.jpg";
 
+import { api, API_URL } from "../services/api";
 import "./HomePage.css";
-
-const API_URL = (process.env.REACT_APP_API_URL || "http://localhost:5000").replace(/\/$/, "");
 
 const safeJSONParse = (value, fallback) => {
   try {
@@ -60,16 +59,7 @@ const safeJSONParse = (value, fallback) => {
 };
 
 const cleanText = (value) => String(value ?? "").trim();
-
 const norm = (t) => cleanText(t).toLowerCase().replace(/\s+/g, " ");
-
-const pickArray = (data) => {
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.items)) return data.items;
-  if (data && Array.isArray(data.servicios)) return data.servicios;
-  if (data && Array.isArray(data.productos)) return data.productos;
-  return [];
-};
 
 const obtenerUsuarioActual = () => {
   return safeJSONParse(localStorage.getItem("usuario"), null);
@@ -343,10 +333,7 @@ function HomePage({ cartOpen: cartOpenProp, setCartOpen: setCartOpenProp }) {
       try {
         setLoadingCatalogo(true);
 
-        const res = await fetch(`${API_URL}/api/servicios`);
-        const data = await res.json();
-
-        const listaServicios = pickArray(data);
+        const listaServicios = await api.getServicios(true);
 
         const activosServicios = listaServicios
           .filter((s) => s && s.activo !== false)
@@ -420,15 +407,7 @@ function HomePage({ cartOpen: cartOpenProp, setCartOpen: setCartOpenProp }) {
 
     const fetchProductos = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/productos`);
-
-        if (!res.ok) {
-          if (!cancelado) setProducts([]);
-          return;
-        }
-
-        const data = await res.json();
-        const listaProductos = pickArray(data);
+        const listaProductos = await api.getProductos(true);
 
         const activos = listaProductos
           .filter((p) => p && p.activo !== false)

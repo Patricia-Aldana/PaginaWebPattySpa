@@ -1,4 +1,14 @@
-const API_URL = "https://patty-spa-backend.onrender.com";
+const getFallbackApiUrl = () => {
+  if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+    return "http://localhost:5000";
+  }
+
+  return "https://TU-BACKEND.onrender.com";
+};
+
+const API_URL = (
+  process.env.REACT_APP_API_URL || getFallbackApiUrl()
+).replace(/\/$/, "");
 
 const parseResponse = async (res) => {
   const text = await res.text();
@@ -12,13 +22,29 @@ const parseResponse = async (res) => {
   }
 };
 
-const request = async (url, options = {}) => {
-  const res = await fetch(url, options);
+const request = async (path, options = {}) => {
+  const url = /^https?:\/\//i.test(path) ? path : `${API_URL}${path}`;
+  const method = String(options.method || "GET").toUpperCase();
+
+  const headers = {
+    ...(options.headers || {}),
+  };
+
+  if (options.body && !headers["Content-Type"] && !headers["content-type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(url, {
+    ...options,
+    method,
+    headers,
+  });
+
   const data = await parseResponse(res);
 
   if (!res.ok) {
     const error = new Error(
-      data?.message || data?.error || "Error en la solicitud"
+      data?.message || data?.error || `Error HTTP ${res.status}`
     );
 
     error.response = {
@@ -52,17 +78,27 @@ export const api = {
   },
 
   async getServicios(onlyActive = false) {
-    const data = await request(`${API_URL}/api/servicios`);
+    const data = await request("/api/servicios");
     const lista = extraerArray(data, "servicios");
-    return onlyActive ? lista.filter((s) => s.activo !== false) : lista;
+    return onlyActive ? lista.filter((s) => s?.activo !== false) : lista;
+  },
+
+  async getProductos(onlyActive = false) {
+    const data = await request("/api/productos");
+    const lista = extraerArray(data, "productos");
+    return onlyActive ? lista.filter((p) => p?.activo !== false) : lista;
+  },
+
+  async login(payload) {
+    return request("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   async crearCita(payload) {
-    return request(`${API_URL}/api/citas/agendamiento`, {
+    return request("/api/citas/agendamiento", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(payload),
     });
   },
@@ -77,7 +113,7 @@ export const api = {
   },
 
   async cancelarCita(id) {
-    return request(`${API_URL}/api/citas/${id}/cancelar`, {
+    return request(`/api/citas/${id}/cancelar`, {
       method: "DELETE",
     });
   },

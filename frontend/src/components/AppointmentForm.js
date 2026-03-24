@@ -116,6 +116,7 @@ function AppointmentForm() {
     const cargarCatalogos = async () => {
       try {
         setLoadingCatalogos(true);
+        setMensaje("");
 
         const [listaProfesionales, listaServicios] = await Promise.all([
           api.getProfesionales(true),
@@ -141,7 +142,9 @@ function AppointmentForm() {
       } catch (error) {
         console.error("Error cargando catálogos:", error);
         setMensaje(
-          error.message || "No se pudieron cargar los profesionales o servicios."
+          error?.response?.data?.message ||
+            error?.message ||
+            "No se pudieron cargar los profesionales o servicios."
         );
       } finally {
         if (mounted) {
@@ -245,7 +248,7 @@ function AppointmentForm() {
     try {
       setLoading(true);
 
-      const data = await api.crearCita({
+      await api.crearCita({
         usuarioId: usuarioActual?._id || usuarioActual?.id || "",
         nombre,
         email: usuarioActual.email,
@@ -271,7 +274,6 @@ function AppointmentForm() {
       localStorage.setItem("ultima_cita_pattyspa", JSON.stringify(citaGuardada));
 
       setMensaje("✅ Cita agendada correctamente.");
-
       setFecha("");
       setHora("");
       setServicioId("");
@@ -289,17 +291,22 @@ function AppointmentForm() {
     }
   };
 
-  const resumenServicio = servicioSeleccionado?.nombre || ultimaCita?.servicio || "Sin seleccionar";
+  const resumenServicio =
+    servicioSeleccionado?.nombre || ultimaCita?.servicio || "Sin seleccionar";
+
   const resumenDuracion = servicioSeleccionado?.duracionMinutos
     ? `${servicioSeleccionado.duracionMinutos} min`
     : ultimaCita?.duracion
     ? `${ultimaCita.duracion} min`
     : "—";
+
   const resumenProfesional =
     profesionalSeleccionada?.nombre || ultimaCita?.profesional || "Sin seleccionar";
+
   const resumenFecha =
     (fecha && formatearFechaBonita(fecha)) ||
     (ultimaCita?.fecha ? formatearFechaBonita(ultimaCita.fecha) : "Sin seleccionar");
+
   const resumenHora = hora || ultimaCita?.hora || "Sin seleccionar";
 
   return (

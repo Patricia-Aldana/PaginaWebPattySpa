@@ -93,10 +93,9 @@ const isVercelOrigin = (origin) => {
 const isAllowedOrigin = (origin) => {
   const normalizedOrigin = normalizeOrigin(origin);
 
+  if (!normalizedOrigin) return true;
   if (allowedOrigins.includes(normalizedOrigin)) return true;
-  if (NODE_ENV !== "production" && isLocalDevOrigin(normalizedOrigin)) {
-    return true;
-  }
+  if (isLocalDevOrigin(normalizedOrigin)) return true;
   if (isVercelOrigin(normalizedOrigin)) return true;
 
   return false;
@@ -115,15 +114,13 @@ const corsOptions = {
   },
   credentials: false,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-cron-secret"],
   optionsSuccessStatus: 204,
 };
 
 console.log("✅ Orígenes permitidos CORS:", allowedOrigins);
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
-
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -162,7 +159,7 @@ app.get("/api/health", (_req, res) => {
     ok: true,
     port: PORT,
     env: NODE_ENV,
-    mailer: isBrevoConfigured() ? "brevo" : "no-configurado",
+    mailer: isBrevoConfigured() ? "gmail" : "no-configurado",
   });
 });
 
@@ -172,7 +169,7 @@ app.get("/api/health", (_req, res) => {
 if (NODE_ENV !== "production") {
   app.get("/api/test-mail", async (req, res) => {
     try {
-      const to = cleanText(req.query.to || process.env.BREVO_SENDER_EMAIL);
+      const to = cleanText(req.query.to || process.env.EMAIL_USER);
 
       if (!to) {
         return res.status(400).json({
@@ -219,19 +216,22 @@ if (NODE_ENV !== "production") {
 }
 
 /* -------------------------
-   RUTAS API
+   RECORDATORIOS
 ------------------------- */
-app.use("/api/auth", require("./routes/auth"));
-app.use("/api/profesionales", require("./routes/profesionales"));
-app.use("/api/citas", require("./routes/citas"));
-app.use("/api/servicios", require("./routes/servicios"));
-app.use("/api/productos", require("./routes/productos"));
+async function ejecutarRecordatorios() {
+  if (!isBrevoConfigured()) {
+    return {
+      ok: false,
+      message: "Correo no configurado",
+      processed: 0,
+      sent: 0,
+      failed: 0,
+    };
+  }
 
-/* -------------------------
-   CRON RECORDATORIOS
-------------------------- */
-cron.schedule("*/10 * * * *", async () => {
-  if (!isBrevoConfigured()) return;
+  let processed = 0;
+  let sent = 0;
+  let failed = 0;
 
   try {
     const ahora = new Date();
@@ -246,6 +246,8 @@ cron.schedule("*/10 * * * *", async () => {
     }).lean();
 
     for (const cita of citas) {
+      processed++;
+
       try {
         const fechaHora = new Date(cita.inicio).toLocaleString("es-CO", {
           timeZone: "America/Bogota",
@@ -272,23 +274,83 @@ cron.schedule("*/10 * * * *", async () => {
             { _id: cita._id },
             { $set: { recordatorioEnviado: true } }
           );
+          sent++;
         } else {
+          failed++;
           console.warn(
             `⚠️ No se pudo enviar recordatorio a ${cita.email}:`,
             result.reason
           );
         }
       } catch (mailErr) {
+        failed++;
         console.error(
           `❌ Error enviando recordatorio a ${cita.email}:`,
           mailErr.message || mailErr
         );
       }
     }
+
+    return {
+      ok: true,
+      message: "Recordatorios procesados",
+      processed,
+      sent,
+      failed,
+    };
   } catch (err) {
-    console.error("❌ Error en CRON:", err);
+    console.error("❌ Error en recordatorios:", err);
+    return {
+      ok: false,
+      message: err.message || "Error ejecutando recordatorios",
+      processed,
+      sent,
+      failed,
+    };
+  }
+}
+
+app.post("/api/cron/recordatorios", async (req, res) => {
+  try {
+    const secretHeader = cleanText(req.headers["x-cron-secret"]);
+    const secretEnv = cleanText(process.env.CRON_SECRET || "pattyspa_recordatorios_2026");
+
+    if (secretHeader !== secretEnv) {
+      return res.status(401).json({
+        ok: false,
+        message: "No autorizado",
+      });
+    }
+
+    const result = await ejecutarRecordatorios();
+    return res.status(result.ok ? 200 : 500).json(result);
+  } catch (error) {
+    console.error("❌ Error endpoint recordatorios:", error);
+    return res.status(500).json({
+      ok: false,
+      message: error.message || "Error en endpoint de recordatorios",
+    });
   }
 });
+
+/* -------------------------
+   RUTAS API
+------------------------- */
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/profesionales", require("./routes/profesionales"));
+app.use("/api/citas", require("./routes/citas"));
+app.use("/api/servicios", require("./routes/servicios"));
+app.use("/api/productos", require("./routes/productos"));
+
+/* -------------------------
+   CRON SOLO LOCAL
+------------------------- */
+if (NODE_ENV !== "production") {
+  cron.schedule("*/10 * * * *", async () => {
+    const result = await ejecutarRecordatorios();
+    console.log("🕒 Resultado cron local:", result);
+  });
+}
 
 /* -------------------------
    SEEDS
@@ -463,9 +525,6 @@ async function seedServiciosOnce() {
   }
 }
 
-/* -------------------------
-   REPARAR CITAS ANTIGUAS
-------------------------- */
 async function repairOldCitasDataOnce() {
   try {
     const citas = await Cita.find({}).lean();
