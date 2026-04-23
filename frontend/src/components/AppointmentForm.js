@@ -248,7 +248,7 @@ function AppointmentForm() {
     try {
       setLoading(true);
 
-      await api.crearCita({
+      const resp = await api.crearCita({
         usuarioId: usuarioActual?._id || usuarioActual?.id || "",
         nombre,
         email: usuarioActual.email,
@@ -273,7 +273,14 @@ function AppointmentForm() {
       setUltimaCita(citaGuardada);
       localStorage.setItem("ultima_cita_pattyspa", JSON.stringify(citaGuardada));
 
-      setMensaje("✅ Cita agendada correctamente.");
+      if (resp?.correoConfirmacionEnviado) {
+        setMensaje("✅ Cita agendada correctamente y correo enviado.");
+      } else {
+        setMensaje(
+          `⚠️ La cita quedó guardada, pero el correo no salió. ${resp?.mailError || ""}`
+        );
+      }
+
       setFecha("");
       setHora("");
       setServicioId("");

@@ -499,7 +499,39 @@ function HomePage({ cartOpen: cartOpenProp, setCartOpen: setCartOpenProp }) {
       </section>
 
       <div className="separator" />
+<section className="section about-section">
+  <h2 className="section-title">Sobre Patty Spa</h2>
 
+  <div className="about-grid">
+    <div className="about-card">
+      <h3>Misión</h3>
+      <p>
+        Brindar experiencias de bienestar y belleza que ayuden a nuestros clientes
+        a relajarse, cuidarse y sentirse mejor consigo mismos, a través de servicios
+        profesionales, productos de calidad y una atención cercana y personalizada.
+      </p>
+    </div>
+
+    <div className="about-card">
+      <h3>Visión</h3>
+      <p>
+        Ser un spa reconocido por la excelencia en nuestros servicios, la confianza
+        de nuestros clientes y la experiencia única que ofrecemos en cada visita,
+        convirtiéndonos en un referente de bienestar y estética.
+      </p>
+    </div>
+
+    <div className="about-card full">
+      <h3>¿Para quiénes somos?</h3>
+      <p>
+        En Patty Spa trabajamos para personas que desean dedicar tiempo a su bienestar,
+        mejorar su apariencia y disfrutar de un espacio de relajación. Nuestros servicios
+        están pensados para quienes buscan calidad, confianza y una experiencia
+        profesional en cada detalle.
+      </p>
+    </div>
+  </div>
+</section>
       <section id="servicios" className="section services-section">
         <h2 className="section-title">Servicios destacados</h2>
         <p className="services-intro">

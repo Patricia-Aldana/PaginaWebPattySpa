@@ -1,12 +1,24 @@
+const fetch = require("node-fetch");
 const nodemailer = require("nodemailer");
 
 const cleanText = (value) => String(value ?? "").trim();
 
-const isBrevoConfigured = () => {
+const hasBrevoConfig = () => {
+  return !!(
+    cleanText(process.env.BREVO_API_KEY) &&
+    cleanText(process.env.BREVO_SENDER_EMAIL)
+  );
+};
+
+const hasGmailConfig = () => {
   return !!(
     cleanText(process.env.EMAIL_USER) &&
     cleanText(process.env.EMAIL_PASS)
   );
+};
+
+const isBrevoConfigured = () => {
+  return hasBrevoConfig() || hasGmailConfig();
 };
 
 const normalizePayload = (...args) => {
@@ -33,7 +45,7 @@ const normalizePayload = (...args) => {
   };
 };
 
-const createTransporter = () => {
+const createGmailTransporter = () => {
   return nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -43,20 +55,61 @@ const createTransporter = () => {
   });
 };
 
-const sendBrevoEmail = async (...args) => {
-  const { to, subject, textContent, htmlContent } = normalizePayload(...args);
-
-  if (!isBrevoConfigured()) {
-    console.warn("⚠️ Gmail no está configurado.");
-    return { sent: false, reason: "gmail-no-configurado" };
-  }
-
-  if (!to || !subject || (!textContent && !htmlContent)) {
-    return { sent: false, reason: "datos-incompletos-para-correo" };
-  }
-
+const sendWithBrevo = async ({ to, toName, subject, textContent, htmlContent }) => {
   try {
-    const transporter = createTransporter();
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": cleanText(process.env.BREVO_API_KEY),
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: cleanText(process.env.EMAIL_FROM_NAME) || "Patty Spa",
+          email: cleanText(process.env.BREVO_SENDER_EMAIL),
+        },
+        to: [
+          {
+            email: to,
+            name: toName || to,
+          },
+        ],
+        subject,
+        textContent: textContent || undefined,
+        htmlContent: htmlContent || undefined,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error("❌ Error Brevo:", data);
+      return {
+        sent: false,
+        reason: data?.message || `brevo-http-${response.status}`,
+        data,
+      };
+    }
+
+    console.log("📨 Correo enviado con Brevo:", data?.messageId || data);
+
+    return {
+      sent: true,
+      data,
+    };
+  } catch (error) {
+    console.error("❌ Error enviando con Brevo:", error.message || error);
+    return {
+      sent: false,
+      reason: error.message || "brevo-send-error",
+    };
+  }
+};
+
+const sendWithGmail = async ({ to, subject, textContent, htmlContent }) => {
+  try {
+    const transporter = createGmailTransporter();
 
     const info = await transporter.sendMail({
       from: `"${cleanText(process.env.EMAIL_FROM_NAME) || "Patty Spa"}" <${cleanText(process.env.EMAIL_USER)}>`,
@@ -84,6 +137,37 @@ const sendBrevoEmail = async (...args) => {
       reason: error.message || "gmail-send-error",
     };
   }
+};
+
+const sendBrevoEmail = async (...args) => {
+  const { to, toName, subject, textContent, htmlContent } =
+    normalizePayload(...args);
+
+  if (!to || !subject || (!textContent && !htmlContent)) {
+    return { sent: false, reason: "datos-incompletos-para-correo" };
+  }
+
+  if (hasBrevoConfig()) {
+    return sendWithBrevo({
+      to,
+      toName,
+      subject,
+      textContent,
+      htmlContent,
+    });
+  }
+
+  if (hasGmailConfig()) {
+    return sendWithGmail({
+      to,
+      subject,
+      textContent,
+      htmlContent,
+    });
+  }
+
+  console.warn("⚠️ No hay correo configurado ni con Brevo ni con Gmail.");
+  return { sent: false, reason: "mailer-no-configurado" };
 };
 
 module.exports = {
