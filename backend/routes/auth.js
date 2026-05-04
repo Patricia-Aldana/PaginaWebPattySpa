@@ -8,7 +8,7 @@ const { sendBrevoEmail } = require("../utils/brevoMailer");
 const router = express.Router();
 
 /* -------------------------
-   HELPERS ORIGINALES
+    HELPERS ORIGINALES
 ------------------------- */
 const cleanText = (value) => String(value || "").trim();
 const cleanEmail = (value) => cleanText(value).toLowerCase();
@@ -21,11 +21,15 @@ const publicUser = (usuario) => ({
 });
 
 /* -------------------------
-   LÓGICA DE ENVÍO (BREVO)
+    LÓGICA DE ENVÍO (BREVO)
 ------------------------- */
 const enviarCorreoRecuperacion = async (email, token) => {
-  // Cambia localhost:3000 por tu URL de Vercel cuando despliegues
-  const link = `http://localhost:3000/reset-password/${token}`;
+  // CAMBIO REALIZADO: Lógica dinámica para el enlace según el entorno
+  const UI_URL = process.env.NODE_ENV === "production" 
+    ? "https://pagina-web-patty-spa.vercel.app" 
+    : "http://localhost:3000";
+
+  const link = `${UI_URL}/reset-password/${token}`;
 
   return await sendBrevoEmail({
     to: email,
@@ -45,7 +49,7 @@ const enviarCorreoRecuperacion = async (email, token) => {
 };
 
 /* -------------------------
-   RUTAS (REGISTER / LOGIN)
+    RUTAS (REGISTER / LOGIN)
 ------------------------- */
 
 router.post("/register", async (req, res) => {
@@ -84,7 +88,7 @@ router.post("/login", async (req, res) => {
 });
 
 /* -------------------------
-   RUTAS DE CONTRASEÑA
+    RUTAS DE CONTRASEÑA
 ------------------------- */
 
 // 1. Enviar el enlace
