@@ -24,18 +24,14 @@ const isBrevoConfigured = () => {
 const normalizePayload = (...args) => {
   if (args[0] && typeof args[0] === "object" && !Array.isArray(args[0])) {
     const input = args[0];
-
     return {
       to: cleanText(input.to),
       toName: cleanText(input.toName || input.nombre || ""),
       subject: cleanText(input.subject || input.asunto),
-      textContent: cleanText(
-        input.textContent || input.text || input.texto || ""
-      ),
+      textContent: cleanText(input.textContent || input.text || input.texto || ""),
       htmlContent: cleanText(input.htmlContent || input.html || ""),
     };
   }
-
   return {
     to: cleanText(args[0]),
     toName: "",
@@ -57,8 +53,13 @@ const createGmailTransporter = () => {
 
 const sendWithBrevo = async ({ to, toName, subject, textContent, htmlContent }) => {
   try {
+    // CORRECCIÓN: Usamos un timeout para que Render no se quede colgado si la red falla
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos max
+
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         "api-key": cleanText(process.env.BREVO_API_KEY),
@@ -69,48 +70,38 @@ const sendWithBrevo = async ({ to, toName, subject, textContent, htmlContent }) 
           name: cleanText(process.env.EMAIL_FROM_NAME) || "Patty Spa",
           email: cleanText(process.env.BREVO_SENDER_EMAIL),
         },
-        to: [
-          {
-            email: to,
-            name: toName || to,
-          },
-        ],
+        to: [{ email: to, name: toName || to }],
         subject,
         textContent: textContent || undefined,
         htmlContent: htmlContent || undefined,
       }),
     });
 
+    clearTimeout(timeoutId);
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      console.error("❌ Error Brevo:", data);
-      return {
-        sent: false,
-        reason: data?.message || `brevo-http-${response.status}`,
-        data,
-      };
+      console.error("❌ Error Brevo API:", data);
+      return { sent: false, reason: data?.message || `status-${response.status}` };
     }
 
-    console.log("📨 Correo enviado con Brevo:", data?.messageId || data);
-
-    return {
-      sent: true,
-      data,
-    };
+    return { sent: true, data };
   } catch (error) {
-    console.error("❌ Error enviando con Brevo:", error.message || error);
-    return {
-      sent: false,
-      reason: error.message || "brevo-send-error",
-    };
+    console.error("❌ Fallo conexión Brevo:", error.message);
+    
+    // FALLBACK: Si Brevo falla por red (como el ENETUNREACH), intentamos con Gmail automáticamente
+    if (hasGmailConfig()) {
+      console.log("🔄 Reintentando envío con Gmail por error de red en Brevo...");
+      return await sendWithGmail({ to, subject, textContent, htmlContent });
+    }
+
+    return { sent: false, reason: "error-conexion-correo" };
   }
 };
 
 const sendWithGmail = async ({ to, subject, textContent, htmlContent }) => {
   try {
     const transporter = createGmailTransporter();
-
     const info = await transporter.sendMail({
       from: `"${cleanText(process.env.EMAIL_FROM_NAME) || "Patty Spa"}" <${cleanText(process.env.EMAIL_USER)}>`,
       to,
@@ -119,55 +110,30 @@ const sendWithGmail = async ({ to, subject, textContent, htmlContent }) => {
       html: htmlContent || undefined,
     });
 
-    console.log("📨 Correo enviado con Gmail:", info.messageId);
-
-    return {
-      sent: true,
-      data: {
-        messageId: info.messageId,
-        accepted: info.accepted,
-        rejected: info.rejected,
-      },
-    };
+    return { sent: true, data: { messageId: info.messageId } };
   } catch (error) {
-    console.error("❌ Error enviando con Gmail:", error.message || error);
-
-    return {
-      sent: false,
-      reason: error.message || "gmail-send-error",
-    };
+    console.error("❌ Error Gmail:", error.message);
+    return { sent: false, reason: "error-gmail" };
   }
 };
 
 const sendBrevoEmail = async (...args) => {
-  const { to, toName, subject, textContent, htmlContent } =
-    normalizePayload(...args);
+  const { to, toName, subject, textContent, htmlContent } = normalizePayload(...args);
 
   if (!to || !subject || (!textContent && !htmlContent)) {
-    return { sent: false, reason: "datos-incompletos-para-correo" };
+    return { sent: false, reason: "datos-incompletos" };
   }
 
+  // Prioridad: Brevo, si falla o no está, Gmail
   if (hasBrevoConfig()) {
-    return sendWithBrevo({
-      to,
-      toName,
-      subject,
-      textContent,
-      htmlContent,
-    });
+    return sendWithBrevo({ to, toName, subject, textContent, htmlContent });
   }
 
   if (hasGmailConfig()) {
-    return sendWithGmail({
-      to,
-      subject,
-      textContent,
-      htmlContent,
-    });
+    return sendWithGmail({ to, subject, textContent, htmlContent });
   }
 
-  console.warn("⚠️ No hay correo configurado ni con Brevo ni con Gmail.");
-  return { sent: false, reason: "mailer-no-configurado" };
+  return { sent: false, reason: "sin-configuracion" };
 };
 
 module.exports = {
