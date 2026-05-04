@@ -112,7 +112,7 @@ const corsOptions = {
     console.error("❌ CORS bloqueó origen:", origin);
     return callback(new Error(`Origen no permitido por CORS: ${origin}`));
   },
-  credentials: false,
+  credentials: true, // Cambiado a true para permitir el flujo de auth/cookies si es necesario
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-cron-secret"],
   optionsSuccessStatus: 204,
@@ -135,8 +135,10 @@ app.use((req, _res, next) => {
 
   if (Object.keys(req.body || {}).length > 0) {
     const safeBody = { ...req.body };
+    // Ocultamos también tokens en los logs
     if (safeBody.password) safeBody.password = "********";
     if (safeBody.newPassword) safeBody.newPassword = "********";
+    if (safeBody.token) safeBody.token = "********";
     console.log("BODY:", safeBody);
   }
 
@@ -159,7 +161,7 @@ app.get("/api/health", (_req, res) => {
     ok: true,
     port: PORT,
     env: NODE_ENV,
-    mailer: isBrevoConfigured() ? "gmail" : "no-configurado",
+    mailer: isBrevoConfigured() ? "configurado" : "no-configurado",
   });
 });
 
@@ -336,6 +338,7 @@ app.post("/api/cron/recordatorios", async (req, res) => {
 /* -------------------------
    RUTAS API
 ------------------------- */
+// Cargamos auth PRIMERO para evitar conflictos con el 404
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/profesionales", require("./routes/profesionales"));
 app.use("/api/citas", require("./routes/citas"));

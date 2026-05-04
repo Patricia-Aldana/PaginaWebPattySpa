@@ -42,7 +42,9 @@ function App() {
 
           {/* Recuperación de contraseña */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* SECCIÓN CORREGIDA: Se agrega /:token para capturar el código del correo */}
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
           {/* Usuario registrado */}
           <Route
